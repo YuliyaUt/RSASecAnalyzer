@@ -3,7 +3,7 @@ import random
 import time
 
 
-global_timeout = 5*60
+global_timeout = 3*60
 
 
 def get_param_by_key(params, key, message):
@@ -151,40 +151,36 @@ def pollards_m(b):
     return m
 
 
-def attack_on_rsa_using_pollards_p_minus_1_algorithm(e, n, timeout):
+def p_minus_1_algorithm(e, n, timeout):
+    pa = "[p-1 METHOD] "
     begin_time = time.time()
-    print("Attack using Pollard's (p-1) Algorithm of module", end=" ")
-    print("factorization started with params:")
-    print("e = ", e, ", N = ", n, ", timeout in seconds = ", timeout, sep="")
     while True:
         now = time.time()
         if now - begin_time > timeout:
-            print("Time is out, attack was not successful:(")
+            print(pa + "Time is out, attack was not successful:(")
             return 0, 0
         # 1 < B < M < sqrt(N), M < B^2
-        m, b = 1, 1
-        print("Stage one")
         while not (1 < b < m < int(math.sqrt(n)) and m < b * b):
             b = random.randint(2, int(math.sqrt(n)))
             m = random.randint(2, int(math.sqrt(n)))
-        print("m =", m, "b =", b)
-        print("Counting M(B)")
+        print(pa + "Stage one. (M, B )=", (m, b))
         m_b = pollards_m(b)
         q = n
         for a_0 in range(2, 10 ** 2):
             now = time.time()
             if now - begin_time > timeout:
-                print("Time is out, attack was not successful:(")
+                print(pa + "Time is out, attack was not successful:(")
                 return 0, 0
-            # print("A_i=", a_0)
+            print(pa + "A_i =", a_0, "Checking...")
             b_0 = pow(a_0, m_b, n)
             q = math.gcd(b_0 - 1, n)
-            if q < n:
-                if q > 1:
-                    print("SUCCESS")
+            if 1 < q < n:
+                print(pa + "Successful factorization! (p, q)=", q, n//q)
+                return q, n // q
+            if q != n:
                 break
         if q == 1:
-            print("Stage two")
+            print(pa + "Stage two")
             m_0 = b + 1
             if m_0 % 2 == 0:
                 m_0 += 1
@@ -193,35 +189,45 @@ def attack_on_rsa_using_pollards_p_minus_1_algorithm(e, n, timeout):
             while m_0 < m and g_m == 1:
                 now = time.time()
                 if now - begin_time > timeout:
-                    print("Time is out, attack was not successful:(")
+                    print(pa + "Time is out, attack was not successful:(")
                     return 0, 0
                 f_m = ((f_m + 1) * (b ** 2) - 1) % n
                 g_prev = g_m
                 g_m = math.gcd(f_m, n)
                 m_0 += 2
             if 1 < g_m < n:
-                print(g_m, n // g_m)
+                print(pa + "Successful factorization! (p, q)=", (g_m, n // g_m))
                 return g_m, n // g_m
             else:
                 for k in range(g_prev, g_m):
                     now = time.time()
                     if now - begin_time > timeout:
-                        print("Time is out, attack was not successful:(")
+                        print(pa + "Time is out, attack was not successful:(")
                         return 0, 0
                     if 1 < math.gcd(k, n) < n:
                         print(k, n // k)
                         return k, n // k
             break
-        elif 1 < q < n:
-            print(q, n // q)
-            return q, n // q
-        else:
-            print("Entering new loop cause M,B choice was not successful")
+
+
+def attack_on_rsa_using_pollards_p_minus_1_algorithm(e, n, timeout):
+    pa = "[p-1 METHOD ATTACK] "
+    begin_time = time.time()
+    print(pa + "Attack using Pollard's (p-1) Algorithm of module", end=" ")
+    print("factorization started with params:")
+    print(pa + "e = ", e, ", N = ", n, ", timeout in seconds = ", timeout, sep="")
+    p, q = p_minus_1_algorithm(e, n, timeout)
+    if p not in (0, 1, n) and q not in (0, 1, n):
+        d = rsa_secret_key_retriever(e, p, q)
+        print(pa + "Found d: d = ", d)
+    else:
+        print(pa + "Factorization using Pollard's rho method was not successful")
 
 
 # classic version of algorithm taken from Wikipedia - implemented by me
 def pollards_rho_algorithm(n, timeout):
-    print("Starting Pollard's rho factorization algorithm", end=" ")
+    rm = "[RHO METHOD] "
+    print(rm + "Starting Pollard's rho factorization algorithm", end=" ")
     print("with n =", n)
     s = 100000000
     for x_0 in range(2, 9):
@@ -235,21 +241,22 @@ def pollards_rho_algorithm(n, timeout):
             d = gcd(q_i, n)
             i += 1
         if 1 < d < n:
-            print("Successful factorization! p =", d, ", q =", n // d)
+            print(rm + "Successful factorization! p =", d, ", q =", n // d)
             return d, n // d
     return 1, n
 
 
 def attack_on_rsa_using_pollards_rho_method(e, n, timeout):
-    print("Attack using Pollard's Rho Algorithm of module", end=" ")
+    rm = "[RHO METHOD ATTACK] "
+    print(rm + "Attack using Pollard's Rho Algorithm of module", end=" ")
     print("factorization started with params:")
-    print("e = ", e, ", N = ", n, ", timeout in seconds = ", timeout, sep="")
+    print(rm + "e = ", e, ", N = ", n, ", timeout in seconds = ", timeout, sep="")
     p, q = pollards_rho_algorithm(n, timeout)
-    if p not in (1, n):
+    if p not in (0, 1, n) and q not in (0, 1, n):
         d = rsa_secret_key_retriever(e, p, q)
-        print("Found d: d = ", d)
+        print(rm + "Found d: d = ", d)
     else:
-        print("Factorization using Pollard's rho method was not successful")
+        print(rm + "Factorization using Pollard's rho method was not successful")
 
 
 def remove_zeros_from_end(f):
@@ -325,6 +332,7 @@ def c_n_k(n, k):
 
 
 def ciphertext_recovery_attack_with_chosen_ct(e, n, timeout, a, b, c_1, c_2):
+    cr = "[CT RECOVERY]"
     # fill in the f, g vectors of coefficients of polynoms
     f = [0] * (e + 1)
     g = [0] * (e + 1)
@@ -353,53 +361,64 @@ def ciphertext_recovery_attack_with_chosen_ct(e, n, timeout, a, b, c_1, c_2):
 
 
 def ciphertext_recovery_attack(e, n, timeout):
-    print("Choosing random message")
-    # TODO maybe choose a,b randomly?
+    cr = "[LITTLE e]"
+    print(cr + "Choosing random message")
     a = 2
     b = 1
+    print(cr + "(a,b)=", (a, b))
     m_1 = random.randint(2, n-1)
     m_2 = add_mod(a * m_1, b, n)
     c_1 = pow(m_1, e, n)
     c_2 = pow(m_2, e, n)
-    print("Chosen m_1=", m_1)
+    print(cr + "Chosen m_1=", m_1)
+    print(cr + "c_1=", c_1)
+    print(cr + "c_2=", c_2)
     ciphertext_recovery_attack_with_chosen_ct(e, n, timeout, a, b, c_1, c_2)
 
 
 def wieners_attack(e, n, timeout):
-    print("Wiener's attack started with params:")
-    print("e = ", e, ", N = ", n, ", timeout in seconds = ", timeout, sep="")
+    wi = "[WIENER] "
+    print(wi + "Wiener's attack started with params:")
+    print(wi + "e = ", e, ", N = ", n, ", timeout in seconds = ", timeout, sep="")
     p, q = 1, 1
     generator = continued_fraction_generator(e, n)
     k, d = 1, 1
     while k != e or d != n:
         k, d = next(generator)
-        print("kd", k, d)
+        print(wi + "(k, d)", (k, d))
         if k == 0:
             continue
         if (e*d - 1) % k != 0:
             continue
         phi_n = (e*d - 1) // k
         p, q = roots(1, - (n - phi_n + 1), n)
-        print("pq", p, q)
+        print(wi + "Retrieved (p,q)", (p, q), "Going to check...")
         if p <= 0 or q <= 0:
+            print(wi + "No success")
             continue
         if p * q == n:
-            print("Success of Wiener's attack! :) p = ", p, ", q = ", q, sep="")
-            break
-    if p * q != n:
-        print("Wiener's attack was not successful, not applicable :(")
-    print(p, q)
+            print(wi + "Success of Wiener's attack! :) p = ", p, ", q = ", q, sep="")
+            return p, q
+        print(wi + "No success")
+    print("Wiener's attack was not successful, not applicable :(")
+    return 0, 0
 
 
 def iteration_attack(e, n, timeout):
-    print("Iteration attack started with params:")
-    print("e = ", e, ", N = ", n, ", timeout in seconds = ", timeout, sep="")
+    start = time.time()
+    it = "[ITERATTACK] "
+    print(it + "Iteration attack started with params:")
+    print(it + "e = ", e, ", N = ", n, ", timeout in seconds = ", timeout, sep="")
     found = False
     p, q = 1, n
     while not found:
+        if time.time() - start > timeout:
+            print(it + "Quitting on timeout")
+            break
         m = random.randint(2, 2**8)
         if n == m:
             continue
+        print(it + "Chose message:", m)
         if gcd(n, m) > 1:
             p, q = m, n // m
         c = pow(m, e, n)
@@ -409,17 +428,18 @@ def iteration_attack(e, n, timeout):
             i += 1
             c_i = pow(c_i, e, n)
         if gcd(c_i-c, n) == n:
-            print("Unlucky number", m)
+            print(it + "Unlucky message:", m)
             continue
         p, q = gcd(c_i - c, n), n // gcd(c_i - c, n)
-        found = True
-        print("Found! Iterations number:", i)
-    if p not in (1, n):
+        if p*q == n:
+            print(it + "Found p, q! Iterations number:", i)
+            print(it + "(p, q) =", (p, q))
+            found = True
+    if p not in (0, 1, n) and q not in (0, 1, n) :
         d = rsa_secret_key_retriever(e, p, q)
-        print("Found d: d = ", d)
-        print(p, q)
+        print(it + "Found d: d = ", d)
     else:
-        print("Factorization using iteration attack method was not successful")
+        print(it + "Factorization using iteration attack method was not successful")
 
 
 def test_mode(params):
@@ -456,7 +476,7 @@ def analysis_mode(params):
     return 0
 
 
-def main ():
+def main():
     print("-------------------------RSA Security Analyzer-------------------------")
     print("Enter '/test [-n system_parameter] [-a attacks list]' for test mode")
     print("Enter '/analyze [-e e] [-n N] [-t timeout_in_seconds]' for public key security analysis")
