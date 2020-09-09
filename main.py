@@ -495,7 +495,5 @@ def main():
 
 factor_base = load_factor_base()
 
-# TODO: introduce timeouts
-# TODO: introduce reports
 if __name__ == "__main__":
     main()
