@@ -160,6 +160,7 @@ def p_minus_1_algorithm(e, n, timeout):
             print(pa + "Time is out, attack was not successful:(")
             return 0, 0
         # 1 < B < M < sqrt(N), M < B^2
+        b, m = 1, 1
         while not (1 < b < m < int(math.sqrt(n)) and m < b * b):
             b = random.randint(2, int(math.sqrt(n)))
             m = random.randint(2, int(math.sqrt(n)))
@@ -495,5 +496,7 @@ def main():
 
 factor_base = load_factor_base()
 
+# TODO: introduce timeouts
+# TODO: introduce reports
 if __name__ == "__main__":
     main()
